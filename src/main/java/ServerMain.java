@@ -1,5 +1,5 @@
 
-import db.DataPipe;
+import db.DatabaseManager;
 import db.dynamo.DynamoManager;
 import weather.handlers.WeatherMessageHandler;
 
@@ -12,7 +12,7 @@ public class ServerMain {
 
     private static void registerHandlers(SQSMessenger messenger){
 
-        DataPipe pipe = new DynamoManager();
+        DatabaseManager pipe = new DynamoManager();
 
         messenger.registerMessageHandler(WEATHER_MSG_ID, new WeatherMessageHandler(pipe));
 

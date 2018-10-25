@@ -1,25 +1,21 @@
 package db.dynamo;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.document.Table;
-import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec;
 import com.amazonaws.services.dynamodbv2.model.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import db.DataPipe;
-import db.HumidityDao;
-import db.TemperatureDao;
-import org.joda.time.DateTime;
+import db.DatabaseManager;
+import db.model.humidity.HumidityDao;
+import db.model.temp.TemperatureDao;
 import util.JsonUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class DynamoManager implements DataPipe{
+public class DynamoManager implements DatabaseManager {
 
 
     private DynamoDB db;
@@ -35,12 +31,12 @@ public class DynamoManager implements DataPipe{
         this.db = new DynamoDB(client);
 
         List<AttributeDefinition> attributeDefinitions = new ArrayList<AttributeDefinition>();
-        attributeDefinitions.add(new AttributeDefinition().withAttributeName("NodeId").withAttributeType("S"));
-        attributeDefinitions.add(new AttributeDefinition().withAttributeName("Timestamp").withAttributeType("N"));
+        attributeDefinitions.add(new AttributeDefinition().withAttributeName("nodeId").withAttributeType("S"));
+        attributeDefinitions.add(new AttributeDefinition().withAttributeName("createdDate").withAttributeType("S"));
 
         List<KeySchemaElement> keySchema = new ArrayList<KeySchemaElement>();
-        keySchema.add(new KeySchemaElement().withAttributeName("NodeId").withKeyType(KeyType.HASH));
-        keySchema.add(new KeySchemaElement().withAttributeName("Timestamp").withKeyType(KeyType.RANGE));
+        keySchema.add(new KeySchemaElement().withAttributeName("nodeId").withKeyType(KeyType.HASH));
+        keySchema.add(new KeySchemaElement().withAttributeName("createdDate").withKeyType(KeyType.RANGE));
 
         ProvisionedThroughput pt = new ProvisionedThroughput().withReadCapacityUnits(1L).withWriteCapacityUnits(1L);
 
@@ -66,34 +62,28 @@ public class DynamoManager implements DataPipe{
 
     }
 
+
+
     public void saveTemperature(TemperatureDao temperature) throws JsonProcessingException {
         Item temp = new Item();
-
-        temp.withPrimaryKey("nodeId", temperature.getSensorInfo().getAddress64bit());
-        temp.withPrimaryKey("timestamp", new DateTime(temperature.getTimestamp()).toDateTimeISO().toString());
-        temp.with("nodeInfo", JsonUtils.MAPPER.writeValueAsString(temperature.getSensorInfo()));
+        temp.withPrimaryKey("nodeId", temperature.getNodeId());
+        temp.withPrimaryKey("createdDate", temperature.getCreatedDate().toDateTimeISO().toString());
 
 
-        String tempJson = JsonUtils.MAPPER.writeValueAsString(temperature);
-
-        temp.withJSON("sensor", tempJson);
-
-        UpdateItemSpec update = new UpdateItemSpec().withPrimaryKey(
-                "nodeId", temperature.getSensorInfo().getAddress64bit(),
-                "daystamp", new DateTime(temperature.getTimestamp()))
-                .withUpdate
-
+        temp.withString("indexDate", temperature.getIndexedDate().toDateTimeISO().toString());
+        temp.withJSON("nodeInfo", JsonUtils.MAPPER.writeValueAsString(temperature.getNodeInfo()));
+        temp.withJSON("temperature", JsonUtils.MAPPER.writeValueAsString(temperature.getTemperature()));
         temperatureTable.putItem(temp);
     }
 
     public void saveHumidity(HumidityDao humidityDao) throws JsonProcessingException {
         Item humidity = new Item();
-        humidity.withPrimaryKey("NodeId", humidityDao.getSensorInfo().getAddress64bit());
-        humidity.withPrimaryKey("Timestamp", humidityDao.getTimestamp().toInstant().toEpochMilli());
+        humidity.withPrimaryKey("nodeId", humidityDao.getNodeId());
+        humidity.withPrimaryKey("createdDate", humidityDao.getCreatedDate().toDateTimeISO().toString());
 
-        String humJson = JsonUtils.MAPPER.writeValueAsString(humidityDao);
-
-        humidity.withJSON("sensor", humJson);
+        humidity.withString("indexDate", humidityDao.getIndexedDate().toDateTimeISO().toString());
+        humidity.withJSON("nodeInfo", JsonUtils.MAPPER.writeValueAsString(humidityDao.getNodeInfo()));
+        humidity.withJSON("humidity", JsonUtils.MAPPER.writeValueAsString(humidityDao.getHumidity()));
 
         humidityTable.putItem(humidity);
     }

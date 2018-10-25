@@ -4,37 +4,61 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import core.MessageHandler;
-import db.DataPipe;
-import db.HumidityDao;
-import db.TemperatureDao;
+import db.DatabaseManager;
+import db.model.humidity.HumidityDao;
+import db.model.temp.TemperatureDao;
 import db.sensor.xbee.XbeeDao;
 import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import util.JsonUtils;
 import weather.messages.Weather;
+
+import java.util.Base64;
 
 public class WeatherMessageHandler implements MessageHandler {
 
-    private DataPipe manager;
+    private DatabaseManager manager;
     private DateTime lastUpdated;
 
-    public WeatherMessageHandler(DataPipe pipe) {
+    private static final Logger logger = LoggerFactory.getLogger(WeatherMessageHandler.class);
+
+    public WeatherMessageHandler(DatabaseManager pipe) {
         this.manager = pipe;
         this.lastUpdated = new DateTime();
     }
 
-    public void processMessage(XbeeDao device, byte[] payload) {
+    public void processMessage(DateTime createdDate, XbeeDao device, byte[] payload) {
+
+        logger.info("Processing message payload: {}", payload);
 
         try {
 
+            logger.debug("Decoding from base 64.... ");
+            //all payloads are base64 encoded.
+            byte[] decodedPayload = Base64.getDecoder().decode(payload);
+            logger.debug("Decoded base64 payload.  Result: {}", decodedPayload);
+
             //parse the weather message
-            Weather.WeatherMessage msg = Weather.WeatherMessage.parseFrom(ByteString.copyFrom(payload));
+            Weather.WeatherMessage msg = Weather.WeatherMessage.parseFrom(ByteString.copyFrom(decodedPayload));
+
+            logger.debug("Parsed a weather message: {}", msg.toString());
 
             if(msg.hasTemperatureF()) {
-                TemperatureDao temp = new TemperatureDao(msg, device);
+
+                logger.info("Weather message temperature data: {}", msg.getTemperatureF());
+
+                TemperatureDao temp = new TemperatureDao(createdDate, msg, device);
+
+                logger.debug("Weather message temperature data: {}", JsonUtils.MAPPER.writeValueAsString(temp));
+
                 this.manager.saveTemperature(temp);
             }
 
             if(msg.hasHumidity()){
-                HumidityDao humidityDao = new HumidityDao(msg, device);
+                logger.info("Weather message humidity data: {}", msg.getHumidity());
+                HumidityDao humidityDao = new HumidityDao(createdDate, msg, device);
+                logger.debug("Weather message humidity data: {}", JsonUtils.MAPPER.writeValueAsString(humidityDao));
                 this.manager.saveHumidity(humidityDao);
             }
 

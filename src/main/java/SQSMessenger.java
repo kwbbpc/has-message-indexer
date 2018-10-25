@@ -1,16 +1,16 @@
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import com.amazonaws.services.sqs.model.SetQueueAttributesRequest;
 import com.amazonaws.util.Base64;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonNode;
 import core.MessageHandler;
-import db.DataPipe;
 import db.sensor.xbee.XbeeDao;
+import org.joda.time.DateTime;
 import util.JsonUtils;
-import weather.handlers.WeatherMessageHandler;
-import weather.messages.Weather;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -51,7 +51,11 @@ public class SQSMessenger {
     public void getMessages(){
 
         //pull messages from the queue
-        List<Message> messages = sqs.receiveMessage(queueUrl).getMessages();
+        ReceiveMessageRequest request = new ReceiveMessageRequest();
+        request.setMaxNumberOfMessages(10);
+        request.setQueueUrl(queueUrl);
+        ReceiveMessageResult result = sqs.receiveMessage(request);
+        List<Message> messages = result.getMessages();
 
         for(Message m : messages) {
             //determine the parser to use
@@ -59,18 +63,22 @@ public class SQSMessenger {
                 String rawMessage = m.getBody();
                 JsonNode sqsMessage = JsonUtils.MAPPER.readTree(rawMessage);
                 JsonNode jsonMessage = JsonUtils.MAPPER.readTree(sqsMessage.get("Message").textValue());
+
+                DateTime createdDate = DateTime.parse(sqsMessage.get("Timestamp").asText());
+
                 Integer msgId = jsonMessage.get(MESSAGE_ID_FIELD).asInt();
 
                 if(msgId != null){
 
                     //TODO: this needs to be refactored sometime to be more flexible.
+                    // well fuck you too buddy
                     XbeeDao sensorDao = XbeeDao.makeSensorDao(jsonMessage.get("nodeInfo"));
 
-                    byte[] payload = Base64.decode(jsonMessage.get("payload").textValue());
+                    byte[] payload = jsonMessage.get("payload").textValue().getBytes();
 
                     MessageHandler handler = this.messageHandlerMap.get(msgId);
                     if(handler != null){
-                        handler.processMessage(sensorDao, payload);
+                        handler.processMessage(createdDate, sensorDao, payload);
                         //delete the message
                         sqs.deleteMessage(queueUrl, m.getReceiptHandle());
                         continue;
