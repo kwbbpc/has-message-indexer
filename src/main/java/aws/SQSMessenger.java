@@ -1,10 +1,13 @@
+package aws;
+
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import com.amazonaws.services.sqs.model.SetQueueAttributesRequest;
-import com.amazonaws.util.Base64;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonNode;
 import core.MessageHandler;
@@ -29,12 +32,14 @@ public class SQSMessenger {
 
 
 
-    public SQSMessenger(){
+    public SQSMessenger(BasicAWSCredentials creds){
 
         //update message ids with their parsers
         this.messageHandlerMap = new HashMap<Integer, MessageHandler>();
 
-        this.sqs = AmazonSQSClientBuilder.defaultClient();
+        this.sqs = AmazonSQSClientBuilder.standard().withCredentials(
+                        new AWSStaticCredentialsProvider(
+                                creds)).build();
 
         SetQueueAttributesRequest set_attrs_request = new SetQueueAttributesRequest()
                 .withQueueUrl(queueUrl)

@@ -1,5 +1,7 @@
 package db.dynamo;
 
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
@@ -23,10 +25,12 @@ public class DynamoManager implements DatabaseManager {
     private Table humidityTable;
 
 
-    public DynamoManager(){
+    public DynamoManager(BasicAWSCredentials creds){
 
 
-        AmazonDynamoDB client = AmazonDynamoDBClientBuilder.defaultClient();
+        AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard().withCredentials(
+                new AWSStaticCredentialsProvider(
+                creds)).build();
 
         this.db = new DynamoDB(client);
 

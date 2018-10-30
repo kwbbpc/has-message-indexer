@@ -1,4 +1,7 @@
 
+
+import aws.SQSMessenger;
+import com.amazonaws.auth.BasicAWSCredentials;
 import db.DatabaseManager;
 import db.dynamo.DynamoManager;
 import weather.handlers.WeatherMessageHandler;
@@ -10,9 +13,9 @@ public class ServerMain {
     public static final Integer WEATHER_MSG_ID = 0;
 
 
-    private static void registerHandlers(SQSMessenger messenger){
+    private static void registerHandlers(SQSMessenger messenger, BasicAWSCredentials creds){
 
-        DatabaseManager pipe = new DynamoManager();
+        DatabaseManager pipe = new DynamoManager(creds);
 
         messenger.registerMessageHandler(WEATHER_MSG_ID, new WeatherMessageHandler(pipe));
 
@@ -25,9 +28,12 @@ public class ServerMain {
 
         try{
 
-            SQSMessenger messenger = new SQSMessenger();
+            AwsCredentialsLoader loader = new AwsCredentialsLoader("awsAccessKeys.properties");
+            BasicAWSCredentials awsCreds = new BasicAWSCredentials(loader.getAccessKey(), loader.getSecretKey());
 
-            registerHandlers(messenger);
+            SQSMessenger messenger = new SQSMessenger(awsCreds);
+
+            registerHandlers(messenger, awsCreds);
 
             while(true){
 
