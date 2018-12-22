@@ -12,6 +12,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import db.DatabaseManager;
 import db.model.humidity.HumidityDao;
 import db.model.temp.TemperatureDao;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import util.JsonUtils;
 
 import java.util.ArrayList;
@@ -24,6 +26,7 @@ public class DynamoManager implements DatabaseManager {
     private Table temperatureTable;
     private Table humidityTable;
 
+    private static final Logger logger = LoggerFactory.getLogger(DynamoManager.class);
 
     public DynamoManager(BasicAWSCredentials creds){
 
@@ -50,7 +53,7 @@ public class DynamoManager implements DatabaseManager {
                     .withKeySchema(keySchema).withProvisionedThroughput(pt);
             this.temperatureTable = this.db.createTable(tempTableRequest);
         }catch (Exception e){
-            System.err.println(e);
+            logger.error("Error creating the temperature table: {}", e);
             this.temperatureTable = this.db.getTable("temperatures");
         }
 
@@ -60,7 +63,7 @@ public class DynamoManager implements DatabaseManager {
                     .withKeySchema(keySchema).withProvisionedThroughput(pt);
             this.humidityTable = this.db.createTable(humidityTableRequest);
         }catch (Exception e){
-            System.err.println(e);
+            logger.error("Error creating the humidity table: {}", e);
             this.humidityTable = this.db.getTable("humidity");
         }
 

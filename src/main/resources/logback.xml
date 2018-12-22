@@ -8,10 +8,10 @@
         </encoder>
     </appender>
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>./logs/xbee-publisher.log</file>
+        <file>./logs/indexer.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- daily rollover -->
-            <fileNamePattern>./logs/xbee-publisher.log.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <fileNamePattern>./logs/indexer.log.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
         </rollingPolicy>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{35} %F:%L - %msg%n</pattern>

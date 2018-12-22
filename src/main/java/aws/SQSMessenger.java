@@ -11,8 +11,11 @@ import com.amazonaws.services.sqs.model.SetQueueAttributesRequest;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonNode;
 import core.MessageHandler;
+import db.dynamo.DynamoManager;
 import db.sensor.xbee.XbeeDao;
 import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import util.JsonUtils;
 
 import java.io.IOException;
@@ -26,6 +29,7 @@ public class SQSMessenger {
     public static String queueUrl = "https://sqs.us-east-1.amazonaws.com/051846041120/test";
     public static final String MESSAGE_ID_FIELD = "messageId";
 
+    private static final Logger logger = LoggerFactory.getLogger(SQSMessenger.class);
 
     private final Map<Integer, MessageHandler> messageHandlerMap;
     private final AmazonSQS sqs;
@@ -34,6 +38,8 @@ public class SQSMessenger {
 
     public SQSMessenger(BasicAWSCredentials creds){
 
+
+
         //update message ids with their parsers
         this.messageHandlerMap = new HashMap<Integer, MessageHandler>();
 
@@ -41,6 +47,7 @@ public class SQSMessenger {
                         new AWSStaticCredentialsProvider(
                                 creds)).build();
 
+        logger.info("Building SQS request with queue {}", queueUrl);
         SetQueueAttributesRequest set_attrs_request = new SetQueueAttributesRequest()
                 .withQueueUrl(queueUrl)
                 .addAttributesEntry("ReceiveMessageWaitTimeSeconds", "20");
@@ -60,7 +67,10 @@ public class SQSMessenger {
         request.setMaxNumberOfMessages(10);
         request.setQueueUrl(queueUrl);
         ReceiveMessageResult result = sqs.receiveMessage(request);
+
+        logger.info("Getting messages");
         List<Message> messages = result.getMessages();
+        logger.info("Got {} messages", messages.size());
 
         for(Message m : messages) {
             //determine the parser to use
@@ -68,6 +78,7 @@ public class SQSMessenger {
                 String rawMessage = m.getBody();
                 JsonNode sqsMessage = JsonUtils.MAPPER.readTree(rawMessage);
                 JsonNode jsonMessage = JsonUtils.MAPPER.readTree(sqsMessage.get("Message").textValue());
+                logger.trace("Message received: ", JsonUtils.MAPPER.writeValueAsString(jsonMessage));
 
                 DateTime createdDate = DateTime.parse(sqsMessage.get("Timestamp").asText());
 
@@ -76,7 +87,6 @@ public class SQSMessenger {
                 if(msgId != null){
 
                     //TODO: this needs to be refactored sometime to be more flexible.
-                    // well fuck you too buddy
                     XbeeDao sensorDao = XbeeDao.makeSensorDao(jsonMessage.get("nodeInfo"));
 
                     byte[] payload = jsonMessage.get("payload").textValue().getBytes();
@@ -87,7 +97,13 @@ public class SQSMessenger {
                         //delete the message
                         sqs.deleteMessage(queueUrl, m.getReceiptHandle());
                         continue;
+                    }else{
+                        logger.error("No handler found for message id {}.  Message Handlers exist for message types {}." +
+                                        "Original Message: {}",
+                                msgId, this.messageHandlerMap.keySet(), JsonUtils.MAPPER.writeValueAsString(jsonMessage));
                     }
+                }else{
+                    logger.error("Message ID not found in message: {}", JsonUtils.MAPPER.writeValueAsString(jsonMessage));
                 }
 
 
@@ -96,9 +112,9 @@ public class SQSMessenger {
                 //handoff to that parser
             }catch (JsonParseException e){
                 //hand to error handler
-                System.err.println(e);
+                logger.error("Error parsing json message: {}. Original Message: {}", e, m);
             }catch (IOException e){
-                System.err.println(e);
+                logger.error("IOException while processing message {}: {}", m, e);
             }
 
             //delete the message

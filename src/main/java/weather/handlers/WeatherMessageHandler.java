@@ -66,12 +66,12 @@ public class WeatherMessageHandler implements MessageHandler {
         }
         catch(InvalidProtocolBufferException e){
 
-            System.err.println("Error processing temperature message: " + e.getMessage());
+            logger.error("Error processing temperature message: " + e.getMessage());
 
         }catch(JsonProcessingException e){
 
-            System.err.println("Error saving data: " + e.getMessage());
-            System.err.println("weather message data: " + payload);
+            logger.error("Error saving data: " + e.getMessage());
+            logger.error("weather message data: " + payload);
 
         }
 
