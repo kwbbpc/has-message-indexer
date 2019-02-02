@@ -1,27 +1,27 @@
-package db.model.humidity;
+package db.model.motion;
 
 import db.sensor.xbee.XbeeDao;
 import org.joda.time.DateTime;
-import messages.proto.Weather;
 
-public class HumidityDao {
-
+public class MotionDetectionDao {
 
     private final String nodeId;
     private final String sensorType;
     private final DateTime createdDate;
     private final DateTime indexedDate;
     private final XbeeDao nodeInfo;
-    private final HumidityFineGrain humidity;
+    private final int expectedDistanceCm;
+    private final int triggeredDistanceCm;
 
 
-    public HumidityDao(DateTime createdDate, Weather.WeatherMessage message, XbeeDao sensor){
+    public MotionDetectionDao(DateTime createdDate, XbeeDao sensor, int expectedDistanceCm, int triggeredDistanceCm) {
         this.nodeId = sensor.getAddress64bit();
-        this.sensorType = HumidityConstants.HumiditySensorType;
+        this.sensorType = MotionDetectionConstants.MotionSensor;
         this.createdDate = createdDate;
         this.indexedDate = DateTime.now().toDateTimeISO();
         this.nodeInfo = sensor;
-        this.humidity = new HumidityFineGrain(message.getHumidity(), HumidityConstants.UNITS.UNITS);
+        this.expectedDistanceCm = expectedDistanceCm;
+        this.triggeredDistanceCm = triggeredDistanceCm;
     }
 
     public String getNodeId() {
@@ -44,7 +44,11 @@ public class HumidityDao {
         return nodeInfo;
     }
 
-    public HumidityFineGrain getHumidity() {
-        return humidity;
+    public int getExpectedDistanceCm() {
+        return expectedDistanceCm;
+    }
+
+    public int getTriggeredDistanceCm() {
+        return triggeredDistanceCm;
     }
 }

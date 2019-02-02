@@ -4,15 +4,20 @@ import aws.SQSMessenger;
 import com.amazonaws.auth.BasicAWSCredentials;
 import db.DatabaseManager;
 import db.dynamo.DynamoManager;
+import messages.DynamoDbSensorRegistrar;
+import messages.handlers.MotionDetectionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import weather.handlers.WeatherMessageHandler;
+import messages.handlers.WeatherMessageHandler;
 
 
 public class ServerMain {
 
+    public static String queueUrl = "https://sqs.us-east-1.amazonaws.com/051846041120/weather";
+    public static String queueUrl2 = "https://sqs.us-east-1.amazonaws.com/051846041120/motion-detection";
 
     public static final Integer WEATHER_MSG_ID = 0;
+    public static final Integer MOTION_DETECT_MSG_ID = 1;
     private static final Logger logger = LoggerFactory.getLogger(ServerMain.class);
 
 
@@ -21,6 +26,8 @@ public class ServerMain {
         DatabaseManager pipe = new DynamoManager(creds);
 
         messenger.registerMessageHandler(WEATHER_MSG_ID, new WeatherMessageHandler(pipe));
+        messenger.registerMessageHandler(MOTION_DETECT_MSG_ID, new MotionDetectionHandler(pipe));
+        messenger.setSensorRegistrar(new DynamoDbSensorRegistrar(pipe));
 
     }
 
@@ -45,7 +52,8 @@ public class ServerMain {
                 while (true) {
 
                     logger.trace("Looping for SQS messages.");
-                    messenger.getMessages();
+                    messenger.getMessages(queueUrl);
+                    messenger.getMessages(queueUrl2);
 
                 }
 

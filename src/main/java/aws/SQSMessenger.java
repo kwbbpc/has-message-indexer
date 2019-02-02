@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import core.MessageHandler;
 import db.dynamo.DynamoManager;
 import db.sensor.xbee.XbeeDao;
+import messages.DynamoDbSensorRegistrar;
+import messages.SensorRegistrar;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,33 +28,29 @@ import java.util.Map;
 public class SQSMessenger {
 
 
-    public static String queueUrl = "https://sqs.us-east-1.amazonaws.com/051846041120/test";
     public static final String MESSAGE_ID_FIELD = "messageId";
 
     private static final Logger logger = LoggerFactory.getLogger(SQSMessenger.class);
 
     private final Map<Integer, MessageHandler> messageHandlerMap;
-    private final AmazonSQS sqs;
+    private final BasicAWSCredentials creds;
+    private SensorRegistrar registrar;
 
 
 
     public SQSMessenger(BasicAWSCredentials creds){
 
-
+        this.creds = creds;
 
         //update message ids with their parsers
         this.messageHandlerMap = new HashMap<Integer, MessageHandler>();
 
-        this.sqs = AmazonSQSClientBuilder.standard().withCredentials(
-                        new AWSStaticCredentialsProvider(
-                                creds)).build();
 
-        logger.info("Building SQS request with queue {}", queueUrl);
-        SetQueueAttributesRequest set_attrs_request = new SetQueueAttributesRequest()
-                .withQueueUrl(queueUrl)
-                .addAttributesEntry("ReceiveMessageWaitTimeSeconds", "20");
-        sqs.setQueueAttributes(set_attrs_request);
 
+    }
+
+    public void setSensorRegistrar(SensorRegistrar registrar){
+        this.registrar = registrar;
     }
 
     public void registerMessageHandler(int messageId, MessageHandler handler){
@@ -60,12 +58,23 @@ public class SQSMessenger {
     }
 
 
-    public void getMessages(){
+    public void getMessages(String queueUrl){
+
+       AmazonSQS sqs = AmazonSQSClientBuilder.standard().withCredentials(
+                new AWSStaticCredentialsProvider(
+                        this.creds)).build();
+
+        logger.info("Building SQS request with queue {}", queueUrl);
+        SetQueueAttributesRequest set_attrs_request = new SetQueueAttributesRequest()
+                .withQueueUrl(queueUrl)
+                .addAttributesEntry("ReceiveMessageWaitTimeSeconds", "20");
+        sqs.setQueueAttributes(set_attrs_request);
 
         //pull messages from the queue
         ReceiveMessageRequest request = new ReceiveMessageRequest();
         request.setMaxNumberOfMessages(10);
         request.setQueueUrl(queueUrl);
+        request.withAttributeNames("All");
         ReceiveMessageResult result = sqs.receiveMessage(request);
 
         logger.info("Getting messages");
@@ -80,7 +89,8 @@ public class SQSMessenger {
                 JsonNode jsonMessage = JsonUtils.MAPPER.readTree(sqsMessage.get("Message").textValue());
                 logger.trace("Message received: ", JsonUtils.MAPPER.writeValueAsString(jsonMessage));
 
-                DateTime createdDate = DateTime.parse(sqsMessage.get("Timestamp").asText());
+
+                DateTime createdDate = new DateTime(Long.parseLong(m.getAttributes().get("SentTimestamp")));
 
                 Integer msgId = jsonMessage.get(MESSAGE_ID_FIELD).asInt();
 
@@ -93,6 +103,14 @@ public class SQSMessenger {
 
                     MessageHandler handler = this.messageHandlerMap.get(msgId);
                     if(handler != null){
+
+                        //check in with the sensor registrar
+                        if(this.registrar != null) {
+                            this.registrar.checkIn(sensorDao, createdDate, msgId);
+                        }else{
+                            logger.warn("Sensor registrar is null, no sensors are going to be registered.");
+                        }
+
                         handler.processMessage(createdDate, sensorDao, payload);
                         //delete the message
                         sqs.deleteMessage(queueUrl, m.getReceiptHandle());

@@ -2,7 +2,7 @@ package db.model.temp;
 
 import db.sensor.xbee.XbeeDao;
 import org.joda.time.DateTime;
-import weather.messages.Weather;
+import messages.proto.Weather;
 
 
 

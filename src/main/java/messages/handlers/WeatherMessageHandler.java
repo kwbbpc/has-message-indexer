@@ -1,4 +1,4 @@
-package weather.handlers;
+package messages.handlers;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
@@ -12,20 +12,18 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.JsonUtils;
-import weather.messages.Weather;
+import messages.proto.Weather;
 
 import java.util.Base64;
 
 public class WeatherMessageHandler implements MessageHandler {
 
     private DatabaseManager manager;
-    private DateTime lastUpdated;
 
     private static final Logger logger = LoggerFactory.getLogger(WeatherMessageHandler.class);
 
     public WeatherMessageHandler(DatabaseManager pipe) {
         this.manager = pipe;
-        this.lastUpdated = new DateTime();
     }
 
     public void processMessage(DateTime createdDate, XbeeDao device, byte[] payload) {
